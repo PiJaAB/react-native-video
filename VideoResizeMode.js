@@ -1,11 +1,7 @@
-'use strict';
+import keyMirror from 'keymirror';
 
-var keyMirror = require('keyMirror');
-
-var VideoResizeMode = keyMirror({
+export default keyMirror({
   contain: null,
   cover: null,
   stretch: null,
 });
-
-module.exports = VideoResizeMode;
