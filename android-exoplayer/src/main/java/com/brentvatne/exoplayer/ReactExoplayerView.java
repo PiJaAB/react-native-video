@@ -21,6 +21,7 @@ import com.google.android.exoplayer2.ExoPlaybackException;
 import com.google.android.exoplayer2.ExoPlayer;
 import com.google.android.exoplayer2.ExoPlayerFactory;
 import com.google.android.exoplayer2.Format;
+import com.google.android.exoplayer2.PlaybackParameters;
 import com.google.android.exoplayer2.SimpleExoPlayer;
 import com.google.android.exoplayer2.Timeline;
 import com.google.android.exoplayer2.extractor.DefaultExtractorsFactory;
@@ -38,7 +39,7 @@ import com.google.android.exoplayer2.source.dash.DefaultDashChunkSource;
 import com.google.android.exoplayer2.source.hls.HlsMediaSource;
 import com.google.android.exoplayer2.source.smoothstreaming.DefaultSsChunkSource;
 import com.google.android.exoplayer2.source.smoothstreaming.SsMediaSource;
-import com.google.android.exoplayer2.trackselection.AdaptiveVideoTrackSelection;
+import com.google.android.exoplayer2.trackselection.AdaptiveTrackSelection;
 import com.google.android.exoplayer2.trackselection.DefaultTrackSelector;
 import com.google.android.exoplayer2.trackselection.MappingTrackSelector;
 import com.google.android.exoplayer2.trackselection.TrackSelection;
@@ -86,6 +87,7 @@ class ReactExoplayerView extends FrameLayout implements
     private boolean loadVideoStarted;
     private boolean isPaused = true;
     private boolean isBuffering;
+    private float rate = 1f;
 
     // Props from React
     private Uri srcUri;
@@ -165,9 +167,6 @@ class ReactExoplayerView extends FrameLayout implements
     @Override
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
-        if (playInBackground) {
-            return;
-        }
         stopPlayback();
     }
 
@@ -175,6 +174,9 @@ class ReactExoplayerView extends FrameLayout implements
 
     @Override
     public void onHostResume() {
+        if (playInBackground) {
+            return;
+        }
         setPlayWhenReady(!isPaused);
     }
 
@@ -200,7 +202,7 @@ class ReactExoplayerView extends FrameLayout implements
 
     private void initializePlayer() {
         if (player == null) {
-            TrackSelection.Factory videoTrackSelectionFactory = new AdaptiveVideoTrackSelection.Factory(BANDWIDTH_METER);
+            TrackSelection.Factory videoTrackSelectionFactory = new AdaptiveTrackSelection.Factory(BANDWIDTH_METER);
             trackSelector = new DefaultTrackSelector(videoTrackSelectionFactory);
             player = ExoPlayerFactory.newSimpleInstance(getContext(), trackSelector, new DefaultLoadControl());
             player.addListener(this);
@@ -209,6 +211,9 @@ class ReactExoplayerView extends FrameLayout implements
             audioBecomingNoisyReceiver.setListener(this);
             setPlayWhenReady(!isPaused);
             playerNeedsSource = true;
+
+            PlaybackParameters params = new PlaybackParameters(rate, 1f);
+            player.setPlaybackParameters(params);
         }
         if (playerNeedsSource && srcUri != null) {
             MediaSource mediaSource = buildMediaSource(srcUri, extension);
@@ -470,8 +475,14 @@ class ReactExoplayerView extends FrameLayout implements
     }
 
     @Override
+    public void onPlaybackParametersChanged(PlaybackParameters params) {
+        eventEmitter.playbackRateChange(params.speed);
+    }
+
+    @Override
     public void onPlayerError(ExoPlaybackException e) {
         String errorString = null;
+        Exception ex = e;
         if (e.type == ExoPlaybackException.TYPE_RENDERER) {
             Exception cause = e.getRendererException();
             if (cause instanceof MediaCodecRenderer.DecoderInitializationException) {
@@ -494,8 +505,12 @@ class ReactExoplayerView extends FrameLayout implements
                 }
             }
         }
+        else if (e.type == ExoPlaybackException.TYPE_SOURCE) {
+            ex = e.getSourceException();
+            errorString = getResources().getString(R.string.unrecognized_media_format);
+        }
         if (errorString != null) {
-            eventEmitter.error(errorString, e);
+            eventEmitter.error(errorString, ex);
         }
         playerNeedsSource = true;
         if (isBehindLiveWindow(e)) {
@@ -605,9 +620,13 @@ class ReactExoplayerView extends FrameLayout implements
         }
     }
 
-    public void setRateModifier(float rate) {
-        // TODO: waiting on ExoPlayer implementation
-        // https://github.com/google/ExoPlayer/issues/26
+    public void setRateModifier(float newRate) {
+      rate = newRate;
+
+      if (player != null) {
+          PlaybackParameters params = new PlaybackParameters(rate, 1f);
+          player.setPlaybackParameters(params);
+      }
     }
 
 
