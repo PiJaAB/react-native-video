@@ -12,6 +12,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
 
+import com.brentvatne.react.R;
 import com.google.android.exoplayer2.C;
 import com.google.android.exoplayer2.ExoPlaybackException;
 import com.google.android.exoplayer2.ExoPlayer;
@@ -65,7 +66,7 @@ public final class ExoPlayerView extends FrameLayout {
 
         shutterView = new View(getContext());
         shutterView.setLayoutParams(params);
-        shutterView.setBackgroundColor(ContextCompat.getColor(context, android.R.color.black));
+        shutterView.setBackgroundColor(ContextCompat.getColor(context, R.color.ReactNativeVideoShutterColor));
 
         subtitleLayout = new SubtitleView(context);
         subtitleLayout.setLayoutParams(params);
